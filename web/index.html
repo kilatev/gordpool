@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gordpool Planner (WASM)</title>
+  <style>
+    body { font-family: "SFMono-Regular", Consolas, Menlo, monospace; margin: 24px; background: #0c0f12; color: #e3e8ef; }
+    h1 { margin-top: 0; }
+    form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    label { display: flex; flex-direction: column; font-size: 12px; color: #8ea0b7; }
+    input { padding: 6px 8px; border-radius: 6px; border: 1px solid #243040; background: #11161e; color: #e3e8ef; }
+    button { grid-column: 1 / -1; padding: 10px 12px; border: none; border-radius: 8px; background: #4f46e5; color: white; font-weight: 600; cursor: pointer; }
+    button:disabled { background: #2d3240; cursor: not-allowed; }
+    .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+    pre { background: #0f1724; border: 1px solid #1f2a3a; padding: 12px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Gordpool Planner (WASM demo)</h1>
+  <p>Shared logic via <code>pkg/planner</code> + <code>pkg/textchart</code>. Fill params and run; Go/WASM fetches Nordpool, builds the plan, and renders the same text chart used in the TUI.</p>
+  <form id="planner-form">
+    <label>Area
+      <input name="area" value="LV" />
+    </label>
+    <label>Market
+      <input name="market" value="DayAhead" />
+    </label>
+    <label>Currency
+      <input name="currency" value="EUR" />
+    </label>
+    <label>Max charge hours
+      <input name="maxChargeHours" type="number" step="0.1" value="3" />
+    </label>
+    <label>Max discharge hours
+      <input name="maxDischargeHours" type="number" step="0.1" value="3" />
+    </label>
+    <label>Last price charged (c/kWh)
+      <input name="lastPriceCharged" type="number" step="0.1" value="15" />
+    </label>
+    <label>Epsilon (c/kWh)
+      <input name="epsilon" type="number" step="0.1" value="2" />
+    </label>
+    <button type="submit">Plan</button>
+  </form>
+
+  <div class="panels">
+    <pre id="chart">WASM loading...</pre>
+    <pre id="output">Waiting for data...</pre>
+  </div>
+
+  <script src="wasm_exec.js"></script>
+  <script>
+    const go = new Go();
+    let wasmReady = false;
+
+    async function boot() {
+      const resp = await WebAssembly.instantiateStreaming(fetch("app.wasm"), go.importObject);
+      go.run(resp.instance);
+      wasmReady = true;
+      document.getElementById("output").textContent = "WASM ready. Submit the form to fetch & plan.";
+    }
+    boot().catch(err => {
+      document.getElementById("output").textContent = "Failed to load WASM: " + err;
+    });
+
+    const form = document.getElementById("planner-form");
+    const output = document.getElementById("output");
+    const chart = document.getElementById("chart");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!wasmReady || typeof plan !== "function") {
+        output.textContent = "WASM not ready yet.";
+        chart.textContent = "";
+        return;
+      }
+      const data = Object.fromEntries(new FormData(form).entries());
+      output.textContent = "Planning...";
+      chart.textContent = "Planning...";
+      try {
+        const json = await plan({
+          area: data.area,
+          market: data.market,
+          currency: data.currency,
+          maxChargeHours: parseFloat(data.maxChargeHours),
+          maxDischargeHours: parseFloat(data.maxDischargeHours),
+          lastPriceCharged: parseFloat(data.lastPriceCharged),
+          epsilon: parseFloat(data.epsilon),
+          // If you run the local proxy (go run ./cmd/proxy), the baseURL below avoids CORS issues.
+          baseURL: location.origin + "/api/DayAheadPrices",
+        });
+        const parsed = JSON.parse(json);
+        chart.textContent = parsed.chart || "No chart";
+        output.textContent = JSON.stringify({ schedule: parsed.schedule, prices: parsed.prices }, null, 2);
+      } catch (err) {
+        output.textContent = "Error: " + err;
+        chart.textContent = "";
+      }
+    });
+  </script>
+</body>
+</html>
