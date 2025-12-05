@@ -74,7 +74,7 @@ func planPromise(this js.Value, args []js.Value) any {
 			}
 			now := time.Now().UTC()
 			schedule := planner.BuildBatterySchedule(prices, params, now)
-			chart := textchart.Build(prices, schedule, now, textchart.FilterAll, textchart.Options{Colorize: false})
+			chart := textchart.Build(prices, schedule, now, textchart.FilterAll, textchart.Options{Colorize: true})
 
 			payload := map[string]any{
 				"schedule": schedule,

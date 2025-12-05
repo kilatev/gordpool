@@ -13,7 +13,8 @@
     button { grid-column: 1 / -1; padding: 10px 12px; border: none; border-radius: 8px; background: #4f46e5; color: white; font-weight: 600; cursor: pointer; }
     button:disabled { background: #2d3240; cursor: not-allowed; }
     .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
-    pre { background: #0f1724; border: 1px solid #1f2a3a; padding: 12px; border-radius: 8px; overflow-x: auto; }
+    pre { background: #0f1724; border: 1px solid #1f2a3a; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre; }
+    pre span { font-weight: 600; }
   </style>
 </head>
 <body>
@@ -68,6 +69,25 @@
     const output = document.getElementById("output");
     const chart = document.getElementById("chart");
 
+    const escapeHtml = (str) => str.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const colorMap = {
+      "[red]": "#ef4444",
+      "[lime]": "#22c55e",
+      "[yellow]": "#facc15",
+      "[dodgerblue]": "#38bdf8",
+      "[white]": "#e5e7eb",
+    };
+    const toHtml = (text) => {
+      let html = escapeHtml(text);
+      Object.entries(colorMap).forEach(([tag, color]) => {
+        const safeTag = tag.replace("[", "\\[").replace("]", "\\]");
+        const re = new RegExp(safeTag, "g");
+        html = html.replace(re, `<span style="color:${color}">`);
+      });
+      html = html.replace(/\[-:-:-\]/g, "</span>");
+      return html;
+    };
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (!wasmReady || typeof plan !== "function") {
@@ -91,8 +111,13 @@
           baseURL: location.origin + "/api/DayAheadPrices",
         });
         const parsed = JSON.parse(json);
-        chart.textContent = parsed.chart || "No chart";
-        output.textContent = JSON.stringify({ schedule: parsed.schedule, prices: parsed.prices }, null, 2);
+        if (parsed.chart && parsed.chart.trim() !== "") {
+          chart.innerHTML = toHtml(parsed.chart);
+          output.textContent = "OK";
+        } else {
+          chart.textContent = "No chart returned.\nIf you see this, rebuild wasm (GOOS=js GOARCH=wasm go build -o web/app.wasm ./cmd/web) and reload.";
+          output.textContent = "";
+        }
       } catch (err) {
         output.textContent = "Error: " + err;
         chart.textContent = "";
