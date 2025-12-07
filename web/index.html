@@ -17,11 +17,13 @@
     body { font-family: "SFMono-Regular", Consolas, Menlo, monospace; margin: 24px; background: var(--bg); color: var(--text); }
     h1 { margin-top: 0; }
     p.lead { color: var(--muted); }
+    .summary { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
     .layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 16px; align-items: start; margin-top: 16px; }
     .controls, .chart-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
     form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
     label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 4px; }
-    input { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--input); color: var(--text); }
+    input, select { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--input); color: var(--text); }
+    select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 10px) 50%; background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; padding-right: 28px; }
     button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; margin-top: 8px; }
     button:disabled { background: #2d3240; cursor: not-allowed; }
     .chart-panel pre { background: transparent; border: none; padding: 0; margin: 0; white-space: pre; overflow-x: auto; min-height: 260px; height: 70vh; }
@@ -43,7 +45,23 @@
     <div class="controls">
       <form id="planner-form">
         <label>Area
-          <input name="area" value="LV" />
+          <select name="area" class="flag-select">
+            <option value="FI">🇫🇮 Finland (FI)</option>
+            <option value="SE1">🇸🇪 Sweden North (SE1)</option>
+            <option value="SE2">🇸🇪 Sweden Central North (SE2)</option>
+            <option value="SE3">🇸🇪 Sweden Central (SE3)</option>
+            <option value="SE4">🇸🇪 Sweden South (SE4)</option>
+            <option value="NO1">🇳🇴 Norway Oslo (NO1)</option>
+            <option value="NO2">🇳🇴 Norway Kr.sand (NO2)</option>
+            <option value="NO3">🇳🇴 Norway Tr.heim (NO3)</option>
+            <option value="NO4">🇳🇴 Norway Tromsø (NO4)</option>
+            <option value="NO5">🇳🇴 Norway Bergen (NO5)</option>
+            <option value="DK1">🇩🇰 Denmark West (DK1)</option>
+            <option value="DK2">🇩🇰 Denmark East (DK2)</option>
+            <option value="EE">🇪🇪 Estonia (EE)</option>
+            <option value="LV" selected>🇱🇻 Latvia (LV)</option>
+            <option value="LT">🇱🇹 Lithuania (LT)</option>
+          </select>
         </label>
         <label>Market
           <input name="market" value="DayAhead" />
@@ -68,6 +86,7 @@
     </div>
 
     <div class="chart-panel">
+      <p id="summary" class="summary">Waiting to plan…</p>
       <pre id="chart">WASM loading...</pre>
     </div>
   </div>
@@ -89,6 +108,7 @@
 
     const form = document.getElementById("planner-form");
     const chart = document.getElementById("chart");
+    const summary = document.getElementById("summary");
 
     const escapeHtml = (str) => str.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
     const colorMap = {
@@ -113,10 +133,12 @@
       e.preventDefault();
       if (!wasmReady || typeof plan !== "function") {
         chart.textContent = "";
+        summary.textContent = "WASM not ready.";
         return;
       }
       const data = Object.fromEntries(new FormData(form).entries());
       chart.textContent = "Planning...";
+      summary.textContent = "Planning...";
       try {
         const json = await plan({
           area: data.area,
@@ -137,9 +159,25 @@
           chart.textContent = "No chart returned.\nIf you see this, rebuild wasm (GOOS=js GOARCH=wasm go build -o web/app.wasm ./cmd/web) and reload.";
           chart.classList.add("empty");
         }
+
+        const chargeCount = parsed.schedule?.charge_slots?.length ?? 0;
+        const dischargeCount = parsed.schedule?.discharge_slots?.length ?? 0;
+        const lastPrice = parsed.schedule?.last_price_charged;
+        const epsilon = parsed.schedule?.epsilon;
+        let msg = `Charge slots: ${chargeCount} | Discharge slots: ${dischargeCount}`;
+        if (lastPrice != null && epsilon != null) {
+          const chargeThreshold = lastPrice - epsilon;
+          const dischargeThreshold = Math.min(lastPrice + epsilon, 8);
+          msg += ` — thresholds: charge ≤ ${chargeThreshold.toFixed(2)}c, discharge ≥ ${dischargeThreshold.toFixed(2)}c`;
+        }
+        if (dischargeCount === 0) {
+          msg += " (no prices above discharge threshold)";
+        }
+        summary.textContent = msg;
       } catch (err) {
         chart.textContent = "Error: " + err;
         chart.classList.add("empty");
+        summary.textContent = "Plan failed.";
       }
     });
   </script>

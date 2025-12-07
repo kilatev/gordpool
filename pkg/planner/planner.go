@@ -264,11 +264,18 @@ func BuildBatterySchedule(prices []PriceSlot, params BatteryStrategyParams, now 
 	var chargeCandidates []PriceSlot
 	var dischargeCandidates []PriceSlot
 
+	// Discharge threshold is capped to 8 c/kWh to allow discharging even when
+	// last price + epsilon is too high for current market prices.
+	dischargeThreshold := params.LastPriceCharged + params.Epsilon
+	if dischargeThreshold > 8 {
+		dischargeThreshold = 8
+	}
+
 	for _, s := range future {
 		if params.LastPriceCharged-s.Price >= params.Epsilon {
 			chargeCandidates = append(chargeCandidates, s)
 		}
-		if s.Price-params.LastPriceCharged >= params.Epsilon {
+		if s.Price >= dischargeThreshold {
 			dischargeCandidates = append(dischargeCandidates, s)
 		}
 	}
