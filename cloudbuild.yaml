@@ -1,0 +1,26 @@
+substitutions:
+  _REGION: us-central1
+  _REPO: gordpool
+
+steps:
+  - name: gcr.io/cloud-builders/go
+    args: ["test", "./..."]
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/gordpool:latest
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/gordpool:${SHORT_SHA}
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/gordpool:latest]
+
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/gordpool:${SHORT_SHA}]
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/gordpool:latest
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/gordpool:${SHORT_SHA}
