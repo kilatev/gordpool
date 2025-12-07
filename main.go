@@ -19,6 +19,8 @@ import (
 func main() {
 	app := tview.NewApplication()
 
+	const cachePath = "data/prices.db"
+
 	counter := 0
 	counterView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -108,9 +110,9 @@ func main() {
 			Currency:          currency,
 		}
 
-		fmt.Fprintf(output, "[yellow]Fetching prices for %s...[-:-:-]\n\n", area)
+		fmt.Fprintf(output, "[yellow]Fetching prices for %s (using local cache)...[-:-:-]\n\n", area)
 
-		prices, err := planner.FetchNordpoolPrices(context.Background(), area, market, currency)
+		prices, err := planner.FetchNordpoolPricesCached(context.Background(), cachePath, area, market, currency)
 		if err != nil {
 			fmt.Fprintf(output, "[red]Fetch error: %v[-:-:-]\n", err)
 			return
