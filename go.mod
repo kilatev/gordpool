@@ -1,10 +1,11 @@
 module gordpool
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/gdamore/tcell/v2 v2.13.1
 	github.com/rivo/tview v0.42.0
+	modernc.org/sqlite v1.40.1
 )
 
 require (
@@ -23,5 +24,4 @@ require (
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.40.1 // indirect
 )

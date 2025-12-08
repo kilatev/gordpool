@@ -93,22 +93,29 @@
 
   <script src="wasm_exec.js"></script>
   <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {
+          console.warn('SW registration failed', err);
+        });
+      });
+    }
+
     const go = new Go();
     let wasmReady = false;
+    const form = document.getElementById("planner-form");
+    const chart = document.getElementById("chart");
+    const summary = document.getElementById("summary");
 
     async function boot() {
       const resp = await WebAssembly.instantiateStreaming(fetch("app.wasm"), go.importObject);
       go.run(resp.instance);
       wasmReady = true;
-      document.getElementById("output").textContent = "WASM ready. Submit the form to fetch & plan.";
+      chart.textContent = "WASM ready. Submit the form to fetch & plan.";
     }
     boot().catch(err => {
-      document.getElementById("output").textContent = "Failed to load WASM: " + err;
+      chart.textContent = "Failed to load WASM: " + err;
     });
-
-    const form = document.getElementById("planner-form");
-    const chart = document.getElementById("chart");
-    const summary = document.getElementById("summary");
 
     const escapeHtml = (str) => str.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
     const colorMap = {
