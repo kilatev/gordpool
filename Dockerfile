@@ -17,16 +17,19 @@ RUN GOOS=js GOARCH=wasm go build -o web/app.wasm ./cmd/web && \
     if [ ! -f "$WASM_SRC" ]; then echo "wasm_exec.js not found in GOROOT" >&2; exit 1; fi; \
     cp "$WASM_SRC" web/wasm_exec.js
 
-# Build server (static binary)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/server ./cmd/serve
+# Build servers (static binaries)
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/serve ./cmd/serve
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/runserver ./cmd/runserver
 RUN mkdir -p /out/web && cp -r web/* /out/web/
 
 # Runtime image
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
-COPY --from=builder /out/server /app/server
+COPY --from=builder /out/serve /app/serve
+COPY --from=builder /out/runserver /app/runserver
 COPY --from=builder /out/web /app/web
 
 EXPOSE 8080
-ENTRYPOINT ["/app/server"]
-CMD ["-web", "/app/web", "-listen", ":8080"]
+# Default to the static server; use CMD/entrypoint override to run the proxy server instead.
+ENTRYPOINT ["/app/runserver"]
+CMD []
