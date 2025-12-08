@@ -1,5 +1,6 @@
 //go:build !js && !wasm
 // +build !js,!wasm
+
 package planner
 
 import (
@@ -136,7 +137,6 @@ func storePrices(ctx context.Context, db *sql.DB, prices []PriceSlot, area, mark
 		return nil
 	}
 	now := time.Now().UTC()
-	refreshAfter := now.Add(6 * time.Hour)
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -159,13 +159,7 @@ func storePrices(ctx context.Context, db *sql.DB, prices []PriceSlot, area, mark
 	for _, p := range prices {
 		ts := p.Timestamp.UTC()
 		dayStart := time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
-		dayEnd := dayStart.Add(24 * time.Hour)
-
-		// Refresh mid-day: use the earlier of day end or now+6h.
-		validUntil := refreshAfter
-		if dayEnd.Before(validUntil) {
-			validUntil = dayEnd
-		}
+		validUntil := dayStart.Add(24 * time.Hour)
 
 		if _, err := stmt.ExecContext(ctx, area, market, currency, ts, p.Price, now, validUntil); err != nil {
 			tx.Rollback()
