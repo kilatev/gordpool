@@ -1,0 +1,11 @@
+{
+  "name": "gordpool-solax-scenes",
+  "private": true,
+  "description": "Chrome extension that fills SolaX DataHub 1000 Smart Scenes from a gordpool plan",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

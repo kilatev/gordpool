@@ -1,0 +1,186 @@
+{
+  "format": "solax-datahub1000/v1",
+  "area": "LV",
+  "timezone": "Europe/Riga",
+  "inverters": 2,
+  "windows": [
+    {
+      "date": "2025-12-08",
+      "start_local": "03:00",
+      "end_local": "04:00",
+      "start": "2025-12-08T01:00:00Z",
+      "end": "2025-12-08T02:00:00Z",
+      "action": "charge",
+      "power_kw": 5.2,
+      "per_inverter_kw": 2.6,
+      "energy_kwh": 5.165,
+      "start_soc_percent": 10,
+      "target_soc_percent": 59,
+      "avg_price_per_mwh": 10,
+      "smart_scene": "IF Date & Time 2025-12-08 03:00-04:00 THEN Inverter Charge as 5.2 kW till Battery SOC 59 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": 5200,
+        "per_inverter_power_w": 2600,
+        "duration_s": 3600
+      }
+    },
+    {
+      "date": "2025-12-08",
+      "start_local": "04:00",
+      "end_local": "05:00",
+      "start": "2025-12-08T02:00:00Z",
+      "end": "2025-12-08T03:00:00Z",
+      "action": "charge",
+      "power_kw": 3.3,
+      "per_inverter_kw": 1.65,
+      "energy_kwh": 3.268,
+      "start_soc_percent": 59,
+      "target_soc_percent": 90,
+      "avg_price_per_mwh": 10,
+      "smart_scene": "IF Date & Time 2025-12-08 04:00-05:00 THEN Inverter Charge as 3.3 kW till Battery SOC 90 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": 3300,
+        "per_inverter_power_w": 1650,
+        "duration_s": 3600
+      }
+    },
+    {
+      "date": "2025-12-08",
+      "start_local": "06:00",
+      "end_local": "07:00",
+      "start": "2025-12-08T04:00:00Z",
+      "end": "2025-12-08T05:00:00Z",
+      "action": "discharge",
+      "power_kw": 2.8,
+      "per_inverter_kw": 1.4,
+      "energy_kwh": 2.846,
+      "start_soc_percent": 90,
+      "target_soc_percent": 60,
+      "avg_price_per_mwh": 300,
+      "smart_scene": "IF Date & Time 2025-12-08 06:00-07:00 THEN Inverter Discharge as 2.8 kW till Battery SOC 60 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": -2800,
+        "per_inverter_power_w": -1400,
+        "duration_s": 3600
+      }
+    },
+    {
+      "date": "2025-12-08",
+      "start_local": "07:00",
+      "end_local": "08:00",
+      "start": "2025-12-08T05:00:00Z",
+      "end": "2025-12-08T06:00:00Z",
+      "action": "discharge",
+      "power_kw": 4.7,
+      "per_inverter_kw": 2.35,
+      "energy_kwh": 4.743,
+      "start_soc_percent": 60,
+      "target_soc_percent": 10,
+      "avg_price_per_mwh": 350,
+      "smart_scene": "IF Date & Time 2025-12-08 07:00-08:00 THEN Inverter Discharge as 4.7 kW till Battery SOC 10 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": -4700,
+        "per_inverter_power_w": -2350,
+        "duration_s": 3600
+      }
+    },
+    {
+      "date": "2025-12-08",
+      "start_local": "11:00",
+      "end_local": "12:00",
+      "start": "2025-12-08T09:00:00Z",
+      "end": "2025-12-08T10:00:00Z",
+      "action": "charge",
+      "power_kw": 5.3,
+      "per_inverter_kw": 2.65,
+      "energy_kwh": 5.271,
+      "start_soc_percent": 14,
+      "target_soc_percent": 64,
+      "avg_price_per_mwh": 10,
+      "smart_scene": "IF Date & Time 2025-12-08 11:00-12:00 THEN Inverter Charge as 5.3 kW till Battery SOC 64 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": 5300,
+        "per_inverter_power_w": 2650,
+        "duration_s": 3600
+      }
+    },
+    {
+      "date": "2025-12-08",
+      "start_local": "12:00",
+      "end_local": "13:00",
+      "start": "2025-12-08T10:00:00Z",
+      "end": "2025-12-08T11:00:00Z",
+      "action": "charge",
+      "power_kw": 2.7,
+      "per_inverter_kw": 1.35,
+      "energy_kwh": 2.741,
+      "start_soc_percent": 64,
+      "target_soc_percent": 90,
+      "avg_price_per_mwh": 20,
+      "smart_scene": "IF Date & Time 2025-12-08 12:00-13:00 THEN Inverter Charge as 2.7 kW till Battery SOC 90 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": 2700,
+        "per_inverter_power_w": 1350,
+        "duration_s": 3600
+      }
+    },
+    {
+      "date": "2025-12-08",
+      "start_local": "21:00",
+      "end_local": "22:00",
+      "start": "2025-12-08T19:00:00Z",
+      "end": "2025-12-08T20:00:00Z",
+      "action": "discharge",
+      "power_kw": 4.7,
+      "per_inverter_kw": 2.35,
+      "energy_kwh": 4.743,
+      "start_soc_percent": 90,
+      "target_soc_percent": 40,
+      "avg_price_per_mwh": 400,
+      "smart_scene": "IF Date & Time 2025-12-08 21:00-22:00 THEN Inverter Discharge as 4.7 kW till Battery SOC 40 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": -4700,
+        "per_inverter_power_w": -2350,
+        "duration_s": 3600
+      }
+    },
+    {
+      "date": "2025-12-08",
+      "start_local": "22:00",
+      "end_local": "23:00",
+      "start": "2025-12-08T20:00:00Z",
+      "end": "2025-12-08T21:00:00Z",
+      "action": "discharge",
+      "power_kw": 2.8,
+      "per_inverter_kw": 1.4,
+      "energy_kwh": 2.846,
+      "start_soc_percent": 40,
+      "target_soc_percent": 10,
+      "avg_price_per_mwh": 380,
+      "smart_scene": "IF Date & Time 2025-12-08 22:00-23:00 THEN Inverter Discharge as 2.8 kW till Battery SOC 10 %",
+      "modbus": {
+        "mode": "Enabled Power Control",
+        "active_power_w": -2800,
+        "per_inverter_power_w": -1400,
+        "duration_s": 3600
+      }
+    }
+  ],
+  "summary": {
+    "grid_import_kwh": 16.8655,
+    "grid_export_kwh": 15.1789,
+    "equivalent_cycles": 2,
+    "energy_cost_cents": -529.2599,
+    "degradation_cost_cents": 32,
+    "stored_value_delta_cents": 0,
+    "net_benefit_cents": 497.2599,
+    "stored_energy_value_cents": 5
+  }
+}

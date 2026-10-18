@@ -73,6 +73,11 @@ so each maps to a single Smart Scene rule:
 curl 'localhost:8080/v1/battery/solax?area=LV&timezone=Europe/Riga&inverters=2&capacity_kwh=20&initial_soc_percent=30&degradation_cost_cents=2&max_cycles_per_day=1'
 ```
 
+### Chrome extension
+
+[`extension/solax-scenes`](extension/solax-scenes) loads this plan and fills Smart Scenes in the SolaX web UI by
+replaying a macro you record once. See its README.
+
 Tests use [quicktest](https://github.com/frankban/quicktest) assertions and `testing/quick` property checks:
 
 ```sh

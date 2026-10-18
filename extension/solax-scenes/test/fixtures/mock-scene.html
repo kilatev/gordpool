@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mock Smart Scene</title>
+  <!--
+    Stand-in for the SolaX Cloud Smart Scene editor used by the e2e tests. It
+    mimics what makes real SPAs hard to automate: random ids, state that only
+    updates from input events (a plain .value write is ignored), dropdowns
+    rendered into <body> with stale hidden copies left behind, and a date field
+    that commits only on Enter.
+    ?reload=1 makes "Save" reload the page, like a non-SPA form post.
+  -->
+  <style>
+    body { font: 14px sans-serif; margin: 20px; }
+    .dialog { border: 1px solid #999; padding: 12px; margin-top: 12px; width: 420px; }
+    .dropdown { position: absolute; background: #fff; border: 1px solid #ccc; list-style: none; margin: 0; padding: 4px; }
+    .dropdown li { padding: 4px 8px; cursor: pointer; }
+    .row { margin: 6px 0; }
+    input { width: 160px; }
+  </style>
+</head>
+<body>
+  <h2>Smart Scene</h2>
+  <button class="el-button add" id="el-id-1234-1">+</button>
+  <ul id="scenes"></ul>
+<script>
+(function () {
+  const rid = () => 'el-id-' + Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(Math.random() * 100);
+  const load = () => JSON.parse(sessionStorage.getItem('scenes') || '[]');
+  window.__scenes = load();
+  const list = document.getElementById('scenes');
+  const renderList = () => {
+    list.replaceChildren(...window.__scenes.map((s) => {
+      const li = document.createElement('li');
+      li.textContent = JSON.stringify(s);
+      return li;
+    }));
+  };
+  renderList();
+
+  function el(tag, attrs, text) {
+    const e = document.createElement(tag);
+    e.id = rid();
+    Object.assign(e, attrs || {});
+    if (text) e.textContent = text;
+    return e;
+  }
+
+  // dropdown rendered into body; the previous one is hidden, not removed
+  function dropdown(anchor, options, onPick) {
+    document.querySelectorAll('.dropdown').forEach((d) => (d.style.display = 'none'));
+    const ul = el('ul', { className: 'dropdown el-select-dropdown' });
+    const r = anchor.getBoundingClientRect();
+    ul.style.left = r.left + 'px';
+    ul.style.top = r.bottom + window.scrollY + 'px';
+    for (const o of options) {
+      const li = el('li', { className: 'el-select-dropdown__item' });
+      li.append(el('span', {}, o));
+      li.addEventListener('click', () => {
+        ul.style.display = 'none';
+        onPick(o);
+      });
+      ul.append(li);
+    }
+    document.body.append(ul);
+  }
+
+  // controlled input: state changes only via the input event
+  function field(placeholder, state, key, opts) {
+    const i = el('input', { placeholder, className: 'el-input__inner' });
+    i.addEventListener('input', () => {
+      if (opts && opts.commitOnEnter) state['_' + key] = i.value;
+      else state[key] = i.value;
+    });
+    if (opts && opts.commitOnEnter) {
+      i.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') state[key] = state['_' + key];
+      });
+    }
+    return i;
+  }
+
+  document.querySelector('.add').addEventListener('click', () => {
+    if (document.querySelector('.dialog')) return;
+    const st = {};
+    const dlg = el('div', { className: 'dialog el-dialog' });
+    dlg.append(el('div', { className: 'row' }, 'New scene'));
+    dlg.append(field('Please enter the title', st, 'title'));
+
+    const conds = el('div', { className: 'conds' });
+    const addCond = el('button', { className: 'el-button' }, 'Add condition');
+    addCond.addEventListener('click', () =>
+      dropdown(addCond, ['Weather', 'Date & Time', 'Electricity Price'], (o) => {
+        st.condition = o;
+        if (o !== 'Date & Time') return;
+        const row = el('div', { className: 'row cond' });
+        row.append(field('Select date', st, 'date', { commitOnEnter: true }), field('Start time', st, 'start'), field('End time', st, 'end'));
+        conds.append(row);
+      }),
+    );
+
+    const acts = el('div', { className: 'acts' });
+    const addAct = el('button', { className: 'el-button' }, 'Add action');
+    addAct.addEventListener('click', () =>
+      dropdown(addAct, ['Send Mail', 'Inverter & Battery'], (o) => {
+        st.actionType = o;
+        if (o !== 'Inverter & Battery') return;
+        const row = el('div', { className: 'row act' });
+        const mode = el('input', { placeholder: 'Select mode', readOnly: true, className: 'el-input__inner' });
+        mode.addEventListener('click', () =>
+          dropdown(mode, ['Self use', 'Charge', 'Discharge'], (m) => {
+            st.mode = m;
+            mode.value = m;
+          }),
+        );
+        row.append(mode, field('Power (kW)', st, 'power'), field('Till SOC (%)', st, 'soc'));
+        acts.append(row);
+      }),
+    );
+
+    const save = el('button', { className: 'el-button el-button--primary' }, 'Save');
+    save.addEventListener('click', () => {
+      const scene = { title: st.title, date: st.date, start: st.start, end: st.end, mode: st.mode, power: st.power, soc: st.soc };
+      if (Object.values(scene).some((v) => !v) || st.condition !== 'Date & Time' || st.actionType !== 'Inverter & Battery') {
+        alert('incomplete scene: ' + JSON.stringify(scene));
+        return;
+      }
+      window.__scenes.push(scene);
+      sessionStorage.setItem('scenes', JSON.stringify(window.__scenes));
+      dlg.remove();
+      renderList();
+      if (new URLSearchParams(location.search).get('reload') === '1') location.reload();
+    });
+
+    dlg.append(addCond, conds, addAct, acts, el('div', { className: 'row' }), save);
+    document.body.append(dlg);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font: 13px system-ui, sans-serif; width: 300px; margin: 12px; color: #1d2433; }
+    button { display: block; width: 100%; margin: 6px 0; padding: 8px; border-radius: 6px; border: 1px solid #c4cad6; background: #fff; font: inherit; cursor: pointer; text-align: left; }
+    button.primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+    p { margin: 6px 0; color: #5b6475; }
+    #msg { color: #b42318; }
+  </style>
+</head>
+<body>
+  <button id="open" class="primary">Открыть панель на этой вкладке</button>
+  <button id="auto">Открывать автоматически на этом сайте</button>
+  <button id="options">Настройки (API, батарея)</button>
+  <p>Откройте страницу Smart Scene в SolaXCloud и запустите панель.</p>
+  <p id="msg"></p>
+  <script src="settings.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

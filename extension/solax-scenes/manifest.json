@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "gordpool → SolaX Smart Scene",
+  "description": "Fetches the battery plan from the gordpool API and fills SolaX DataHub 1000 Smart Scenes by replaying a recorded macro.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "110",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "gordpool → SolaX", "default_popup": "popup.html" },
+  "options_page": "options.html"
+}
