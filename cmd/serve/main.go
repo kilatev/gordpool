@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gordpool/pkg/api"
 )
 
 // serve combines static file hosting for /web and a /api/* reverse proxy to avoid CORS.
@@ -18,6 +20,7 @@ func main() {
 		webDir  = flag.String("web", "./web", "directory to serve static files from")
 		target  = flag.String("target", "https://dataportal-api.nordpoolgroup.com", "upstream API base")
 		apiBase = flag.String("api-base", "/api/", "API prefix to proxy")
+		cacheDB = flag.String("db", "data/prices.db", "SQLite price cache used by /v1/battery/*")
 	)
 	flag.Parse()
 
@@ -29,6 +32,9 @@ func main() {
 	}
 	if env := os.Getenv("TARGET"); env != "" {
 		*target = env
+	}
+	if env := os.Getenv("CACHE_DB"); env != "" {
+		*cacheDB = env
 	}
 
 	u, err := url.Parse(*target)
@@ -50,6 +56,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	api.NewServer(*cacheDB).Register(mux)
 	mux.Handle(*apiBase, cors(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, *apiBase) {
 			http.NotFound(w, r)
@@ -67,6 +74,7 @@ func main() {
 
 	log.Printf("Serving static files from %s at %s", absWeb, *listen)
 	log.Printf("Proxying %s at %s*", *target, *apiBase)
+	log.Printf("Battery API at /v1/battery/optimize and /v1/battery/schedule")
 	if err := http.ListenAndServe(*listen, mux); err != nil {
 		log.Fatal(err)
 	}
