@@ -1,6 +1,7 @@
 // Package api exposes the battery planners over HTTP.
 //
 //	POST /v1/battery/optimize   SoC-aware optimal plan (planner.OptimizeBattery)
+//	POST /v1/battery/solax      optimal plan as SolaX DataHub 1000 windows
 //	POST /v1/battery/schedule   legacy threshold plan (planner.BuildBatterySchedule)
 //	GET  /healthz
 //
@@ -18,6 +19,7 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+	_ "time/tzdata" // the runtime image has no zoneinfo
 
 	"gordpool/pkg/planner"
 )
@@ -50,6 +52,18 @@ type OptimizeResponse struct {
 	Prices []planner.SlotJSON `json:"prices"`
 }
 
+type SolaxRequest struct {
+	OptimizeRequest
+	// Timezone is the site's IANA zone (e.g. "Europe/Riga"); defaults to UTC.
+	Timezone  string `json:"timezone"`
+	Inverters int    `json:"inverters"`
+	// MinPowerKW skips windows weaker than this; nil means DefaultSolaxMinPowerKW.
+	MinPowerKW *float64 `json:"min_power_kw,omitempty"`
+}
+
+// DefaultSolaxMinPowerKW keeps sub-0.5 kW top-ups out of Smart Scene rules.
+const DefaultSolaxMinPowerKW = 0.5
+
 type ScheduleRequest struct {
 	Area              string      `json:"area"`
 	Market            string      `json:"market"`
@@ -74,6 +88,7 @@ func NewServer(dbPath string) *Server {
 // Register mounts the API routes on mux.
 func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/battery/optimize", s.handleOptimize)
+	mux.HandleFunc("/v1/battery/solax", s.handleSolax)
 	mux.HandleFunc("/v1/battery/schedule", s.handleSchedule)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -98,19 +113,65 @@ func (s *Server) handleOptimize(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	setMarketDefaults(&req.Area, &req.Market, &req.Currency)
-
-	prices, status, err := s.prices(r.Context(), req.Prices, req.Area, req.Market, req.Currency)
+	plan, prices, status, err := s.optimize(r, &req)
 	if err != nil {
 		writeError(w, status, err)
 		return
 	}
-	plan, err := planner.OptimizeBattery(prices, req.Area, req.Battery, s.now(req.Now))
-	if err != nil {
+	writeJSON(w, http.StatusOK, OptimizeResponse{OptimizedScheduleJSON: plan, Prices: toSlotJSON(prices)})
+}
+
+func (s *Server) handleSolax(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, fmt.Errorf("method %s not allowed", r.Method))
+		return
+	}
+	var req SolaxRequest
+	if err := decode(w, r, &req, solaxFromQuery); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, OptimizeResponse{OptimizedScheduleJSON: plan, Prices: toSlotJSON(prices)})
+	loc := time.UTC
+	if req.Timezone != "" {
+		l, err := time.LoadLocation(req.Timezone)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("timezone: %w", err))
+			return
+		}
+		loc = l
+	}
+	if req.Inverters < 0 {
+		writeError(w, http.StatusBadRequest, errors.New("inverters must be >= 0"))
+		return
+	}
+	minPower := DefaultSolaxMinPowerKW
+	if req.MinPowerKW != nil {
+		minPower = *req.MinPowerKW
+	}
+	plan, _, status, err := s.optimize(r, &req.OptimizeRequest)
+	if err != nil {
+		writeError(w, status, err)
+		return
+	}
+	out, err := plan.ToSolaxDataHub(planner.SolaxOptions{Location: loc, Inverters: req.Inverters, MinPowerKW: minPower})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) optimize(r *http.Request, req *OptimizeRequest) (planner.OptimizedScheduleJSON, []planner.PriceSlot, int, error) {
+	setMarketDefaults(&req.Area, &req.Market, &req.Currency)
+	prices, status, err := s.prices(r.Context(), req.Prices, req.Area, req.Market, req.Currency)
+	if err != nil {
+		return planner.OptimizedScheduleJSON{}, nil, status, err
+	}
+	plan, err := planner.OptimizeBattery(prices, req.Area, req.Battery, s.now(req.Now))
+	if err != nil {
+		return planner.OptimizedScheduleJSON{}, nil, http.StatusBadRequest, err
+	}
+	return plan, prices, 0, nil
 }
 
 func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
@@ -221,6 +282,28 @@ func optimizeFromQuery(q url.Values, req *OptimizeRequest) error {
 			return fmt.Errorf("stored_energy_value_cents: %w", err)
 		}
 		b.StoredEnergyValueCents = &f
+	}
+	return nil
+}
+
+func solaxFromQuery(q url.Values, req *SolaxRequest) error {
+	if err := optimizeFromQuery(q, &req.OptimizeRequest); err != nil {
+		return err
+	}
+	req.Timezone = q.Get("timezone")
+	if v := q.Get("inverters"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return fmt.Errorf("inverters: %w", err)
+		}
+		req.Inverters = n
+	}
+	if v := q.Get("min_power_kw"); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return fmt.Errorf("min_power_kw: %w", err)
+		}
+		req.MinPowerKW = &f
 	}
 	return nil
 }
