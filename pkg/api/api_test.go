@@ -189,3 +189,48 @@ func TestHealthz(t *testing.T) {
 	c.Assert(rec.Code, qt.Equals, http.StatusOK)
 	c.Assert(rec.Body.String(), qt.Equals, "ok")
 }
+
+func TestSolaxEndpoint(t *testing.T) {
+	c := qt.New(t)
+	s, _ := newTestServer(hourly(20, 2, 3, 25, 30, 10), nil)
+
+	rec, _ := do(c, s.Handler(), http.MethodPost, "/v1/battery/solax", `{
+		"timezone": "Europe/Riga",
+		"inverters": 2,
+		"battery": {
+			"capacity_kwh": 10, "max_charge_kw": 10, "max_discharge_kw": 10,
+			"initial_soc_percent": 10, "round_trip_efficiency": 1,
+			"stored_energy_value_cents": 0
+		}
+	}`)
+	c.Assert(rec.Code, qt.Equals, http.StatusOK, qt.Commentf("%s", rec.Body))
+
+	var out planner.SolaxDataHubPlan
+	c.Assert(json.Unmarshal(rec.Body.Bytes(), &out), qt.IsNil)
+	c.Assert(out.Format, qt.Equals, planner.SolaxFormat)
+	c.Assert(out.Windows, qt.HasLen, 2)
+	c.Assert(out.Windows[0].SmartScene, qt.Equals, "IF Date & Time 2025-12-08 03:00-04:00 THEN Inverter Charge as 8.0 kW till Battery SOC 90 %")
+	c.Assert(out.Windows[1].Modbus.PerInverterPowerW, qt.Equals, -4000)
+}
+
+func TestSolaxEndpointQueryAndErrors(t *testing.T) {
+	c := qt.New(t)
+	s, _ := newTestServer(hourly(1, 50), nil)
+
+	rec, out := do(c, s.Handler(), http.MethodGet, "/v1/battery/solax?capacity_kwh=10&timezone=Europe/Vilnius&inverters=3", "")
+	c.Assert(rec.Code, qt.Equals, http.StatusOK, qt.Commentf("%v", out))
+	c.Assert(out["timezone"], qt.Equals, "Europe/Vilnius")
+	c.Assert(out["inverters"], qt.Equals, 3.0)
+
+	rec, out = do(c, s.Handler(), http.MethodGet, "/v1/battery/solax?capacity_kwh=10&timezone=Mars/Base", "")
+	c.Assert(rec.Code, qt.Equals, http.StatusBadRequest)
+	c.Assert(out["error"], qt.Matches, "timezone: .*")
+
+	rec, out = do(c, s.Handler(), http.MethodGet, "/v1/battery/solax?capacity_kwh=10&inverters=x", "")
+	c.Assert(rec.Code, qt.Equals, http.StatusBadRequest)
+	c.Assert(out["error"], qt.Matches, "inverters: .*")
+
+	rec, out = do(c, s.Handler(), http.MethodGet, "/v1/battery/solax?capacity_kwh=10&min_power_kw=x", "")
+	c.Assert(rec.Code, qt.Equals, http.StatusBadRequest)
+	c.Assert(out["error"], qt.Matches, "min_power_kw: .*")
+}
