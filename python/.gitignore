@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.coverage*
+htmlcov/
+coverage-report/
+*.cover
+state/
+.env
