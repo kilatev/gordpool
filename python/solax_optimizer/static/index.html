@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gordpool · отчёт по энергии</title>
+<link rel="stylesheet" href="/assets/report.css">
+<script src="/assets/report.js" defer></script>
+<body>
+<header><span class="brand">gordpool<span class="dot">●</span></span><span class="badge">Nord Pool · LV</span></header>
+<main>
+  <p class="eyebrow">ПЛАНИРОВЩИК ЭНЕРГИИ</p>
+  <h1>Когда накапливать.<br>Когда использовать.</h1>
+  <p class="intro">Цены, выбранные периоды и экономика виртуальной батареи. Без подключения к SolaX Cloud.</p>
+  <div class="toolbar"><button id="refresh">Обновить Nord Pool</button><button id="demo" class="secondary">Открыть демо</button><span id="source">Нет загруженного отчёта</span></div>
+  <p id="status" role="status" aria-live="polite">Загрузка сохранённых цен…</p>
+  <p id="error" role="alert" hidden></p>
+  <details class="settings"><summary>Параметры виртуальной батареи</summary>
+    <form id="settings">
+      <div class="fields">
+        <label>Ёмкость, кВт·ч<input name="capacity_kwh" type="number" value="10" min="0.01" max="1000" step="any" required></label>
+        <label>Заряд, кВт<input name="max_charge_kw" type="number" value="5" min="0" max="1000" step="any" required></label>
+        <label>Использование, кВт<input name="max_discharge_kw" type="number" value="5" min="0" max="1000" step="any" required></label>
+        <label>Начальный заряд, %<input name="initial_soc_percent" type="number" value="10" min="0" max="100" step="any" required></label>
+        <label>Минимум заряда, %<input name="min_soc_percent" type="number" value="10" min="0" max="100" step="any" required></label>
+        <label>Максимум заряда, %<input name="max_soc_percent" type="number" value="90" min="0" max="100" step="any" required></label>
+        <label>Полный КПД, 0–1<input name="round_trip_efficiency" type="number" value="0.85" min="0.01" max="1" step="any" required></label>
+        <label>Износ, €/кВт·ч<input name="degradation_eur_kwh" type="number" value="0.03" min="0" step="any" required></label>
+        <label>Циклов в день · 0 = без лимита<input name="max_cycles_per_day" type="number" value="0" min="0" max="10" step="any" required></label>
+        <label>Стоимость остатка, €/кВт·ч<input name="stored_energy_value_eur_kwh" type="number" step="any" placeholder="Медианная цена горизонта"></label>
+      </div>
+      <p>Пустая стоимость остатка означает медианную цену горизонта; 0 исключает оценку конечного остатка. Мощность и износ заданы на стороне батареи.</p>
+      <button type="submit">Пересчитать план</button>
+    </form>
+  </details>
+  <section id="report" hidden aria-label="Отчёт по энергии">
+    <div class="section-title"><h2>Обзор горизонта</h2><span id="timezone">Europe/Riga</span></div>
+    <p id="horizon"></p><p id="warnings" class="notice" hidden></p>
+    <div id="metrics" class="metrics"></div>
+    <section class="panel"><h2>Цены и выбранные действия</h2><p>Оптовая цена, €/MWh. Цвет фона показывает действие плана; прошедшие интервалы остаются без цвета.</p>
+      <div class="legend"><span class="charge">Заряд</span><span class="discharge">Использование дома</span><span class="hold">Ожидание</span></div>
+      <svg id="chart" viewBox="0 0 1000 280" role="img" aria-label="График цен и действий батареи"></svg>
+    </section>
+    <section class="panel"><h2>Почему выбраны эти периоды</h2>
+      <p>Алгоритм сравнивает последовательности действий на всём доступном горизонте по сетке заряда 1%. Он учитывает мощность, потери, износ и стоимость остатка. Выбранный заряд не обязательно приходится на абсолютный минимум дня: прошедшие цены и ограничения батареи влияют на доступный выбор.</p>
+      <div id="windows"></div>
+    </section>
+    <section class="panel"><h2>Как читать результат</h2>
+      <p>«Использование дома» — возможность заместить покупку энергии при достаточной нагрузке. Реальная нагрузка и солнечная генерация не заданы. Это не команда экспорта и не подтверждённая экономия.</p>
+      <p>Денежный эффект = стоимость замещённых покупок − заряд − износ. Оценка остатка показана отдельно; её сумма с денежным эффектом — целевая функция модели. Тарифные надбавки не учтены.</p>
+      <button id="download" class="secondary">Скачать JSON отчёта</button>
+    </section>
+  </section>
+</main>
+<footer>Только анализ · команды оборудованию не отправляются</footer>
+</body>
+</html>
