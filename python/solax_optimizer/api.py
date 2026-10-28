@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from .optimizer import Battery, Price, UTC, optimize
@@ -38,6 +39,23 @@ def create_app(path: Path = Path("state/prices.json")):
     app = FastAPI(title="SolaX price opportunities", version="0.1.0")
     store = PriceStore(path)
     app.state.store = store
+    static = Path(__file__).parent / "static"
+    index = (static / "index.html").read_text()
+    assets = {
+        "report.js": ((static / "report.js").read_text(), "text/javascript"),
+        "report.css": ((static / "report.css").read_text(), "text/css"),
+    }
+
+    @app.get("/", include_in_schema=False)
+    async def report():
+        return HTMLResponse(index)
+
+    @app.get("/assets/{name}", include_in_schema=False)
+    async def report_asset(name: str):
+        if name not in assets:
+            raise HTTPException(404, "Unknown report asset")
+        content, media_type = assets[name]
+        return Response(content, media_type=media_type)
 
     @app.get("/healthz")
     async def health():

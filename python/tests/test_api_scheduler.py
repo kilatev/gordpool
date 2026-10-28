@@ -29,6 +29,10 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.temp.cleanup()
 
     async def test_health_and_missing_snapshot(self):
+        self.assertEqual((await self.client.get("/")).status_code, 200)
+        self.assertIn("Почему выбраны эти периоды", (await self.client.get("/")).text)
+        self.assertEqual((await self.client.get("/assets/report.js")).status_code, 200)
+        self.assertEqual((await self.client.get("/assets/report.css")).status_code, 200)
         self.assertFalse((await self.client.get("/healthz")).json()["equipment_control"])
         self.assertEqual((await self.client.get("/v1/prices")).status_code,503)
         self.assertEqual((await self.client.post("/v1/plan",json={})).status_code,503)

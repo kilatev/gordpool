@@ -6,3 +6,6 @@ coverage-report/
 *.cover
 state/
 .env
+*.egg-info/
+.pytest_cache/
+coverage.xml
