@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
-from .optimizer import Battery, Price, UTC, optimize
+from .optimizer import Battery, Price, UTC, optimize, optimize_periods
 from .service import PriceStore
 
 
@@ -33,6 +33,10 @@ class PlanInput(BaseModel):
     prices: list[PriceInput] | None = None
     battery: BatteryInput = Field(default_factory=BatteryInput)
     now: datetime | None = None
+
+
+class PeriodPlanInput(PlanInput):
+    battery: BatteryInput = Field(default_factory=lambda: BatteryInput(max_charge_kw=6))
 
 
 def create_app(path: Path = Path("state/prices.json")):
@@ -76,8 +80,7 @@ def create_app(path: Path = Path("state/prices.json")):
         except (OSError, ValueError) as exc:
             raise HTTPException(503, "Price refresh failed; previous snapshot retained") from exc
 
-    @app.post("/v1/plan")
-    async def plan(request: PlanInput):
+    async def build_plan(request: PlanInput, planner):
         try:
             if request.prices is None:
                 rows, meta = store.read()
@@ -85,13 +88,21 @@ def create_app(path: Path = Path("state/prices.json")):
                 rows = [Price(p.start, p.end, p.eur_mwh) for p in request.prices]
                 meta = {"source":"request", "warnings":[]}
             b = Battery(**{f.name:getattr(request.battery, f.name) for f in fields(Battery)})
-            result = optimize(rows, b, request.now or datetime.now(UTC))
+            result = planner(rows, b, request.now or datetime.now(UTC))
             result["price_source"] = {k:v for k,v in meta.items() if k != "prices"}
             return result
         except OSError as exc:
             raise HTTPException(503, "No price snapshot") from exc
         except (ValueError, KeyError, TypeError) as exc:
             raise HTTPException(422, str(exc)) from exc
+
+    @app.post("/v1/plan")
+    async def plan(request: PlanInput):
+        return await build_plan(request, optimize)
+
+    @app.post("/v1/plan/periods")
+    async def period_plan(request: PeriodPlanInput):
+        return await build_plan(request, optimize_periods)
 
     return app
 
