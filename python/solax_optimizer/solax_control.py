@@ -2,11 +2,14 @@
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from time import sleep
 from zoneinfo import ZoneInfo
 
 from .optimizer import Battery, UTC, optimize
+from .solax_soc import read_soc
 
 
 def best_periods(plan, timezone="Europe/Riga"):
@@ -24,13 +27,18 @@ def best_periods(plan, timezone="Europe/Riga"):
 
 
 def apply_best_plan(rows, serial, cdp_url="http://127.0.0.1:9222", timezone="Europe/Riga"):
-    plan = optimize(rows, Battery(), datetime.now(UTC))
+    soc = read_soc(cdp_url, serial)
+    plan = optimize(rows, replace(Battery(), initial_soc_percent=soc), datetime.now(UTC))
     charge, discharge = best_periods(plan, timezone)
     command = [sys.executable, "-m", "solax_optimizer.solax_charge",
                "--login", "--cdp-url", cdp_url, "--serial", serial,
                "--start", charge[0], "--end", charge[1],
                "--discharge-start", discharge[0], "--discharge-end", discharge[1]]
-    subprocess.run(command, cwd=Path(__file__).resolve().parents[1], check=True, timeout=180)
+    try:
+        subprocess.run(command, cwd=Path(__file__).resolve().parents[1], check=True, timeout=180)
+    except subprocess.CalledProcessError:
+        sleep(2)
+        subprocess.run(command, cwd=Path(__file__).resolve().parents[1], check=True, timeout=180)
     return plan, charge, discharge
 
 

@@ -44,13 +44,6 @@ def main():
     with open("state/scheduler.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         store = PriceStore(Path("state/prices.json"))
-        try:
-            asyncio.run(store.refresh())
-            if control:
-                rows, _ = store.read()
-                asyncio.run(asyncio.to_thread(apply_best_plan, rows, *control))
-        except Exception:
-            logging.exception("Startup refresh/control failed; scheduler will continue")
         build_scheduler(store, control).run()
 
 
