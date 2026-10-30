@@ -78,3 +78,13 @@ Tests use [quicktest](https://github.com/frankban/quicktest) assertions and `tes
 ```sh
 go test ./...
 ```
+
+### Browser automation
+
+To let an automation connect to Chromium over the Chrome DevTools Protocol, start a separate browser profile with remote debugging enabled:
+
+```sh
+chromium --remote-debugging-port=9222 --user-data-dir=/tmp/chromium-automation
+```
+
+The automation can then connect to `http://localhost:9222`. Keep this browser window open while it runs.
