@@ -60,8 +60,20 @@ def login_with_pass(page, vault, item, login_field):
         raise RuntimeError("Could not identify the SolaX login fields")
     user_input.fill(username)
     password_input.fill(password)
-    print("Credentials filled. In Chromium, review the terms, check the agreement, and click Login. "
-          "The script is waiting for sign-in.", flush=True)
+    agreement = page.locator("label.arco-checkbox.agreement")
+    agreement_checkbox = agreement.locator('input[type="checkbox"]')
+    if agreement.count() != 1 or agreement_checkbox.count() != 1:
+        raise RuntimeError("Could not identify the SolaX terms agreement checkbox")
+    if not agreement_checkbox.is_checked():
+        agreement.locator(".arco-checkbox-icon-hover").click()
+    if not agreement_checkbox.is_checked():
+        raise RuntimeError("Could not accept the SolaX terms agreement")
+    login_button = page.locator(".submit-button.can-login")
+    if (login_button.count() != 1 or not login_button.is_visible()
+            or login_button.inner_text().strip().casefold() != "login"):
+        raise RuntimeError("Could not identify the enabled SolaX Login button")
+    login_button.click()
+    print("Credentials submitted and terms agreement accepted. Waiting for sign-in.", flush=True)
     page.wait_for_function(
         "() => location.hostname === 'global.solaxcloud.com' "
         "&& location.pathname.startsWith('/green/')", timeout=180000)
