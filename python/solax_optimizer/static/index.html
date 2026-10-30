@@ -16,9 +16,10 @@
   <p id="error" role="alert" hidden></p>
   <details class="settings"><summary>Параметры виртуальной батареи</summary>
     <form id="settings">
+      <label>Режим расчёта<select id="planner"><option value="periods">24 часа · до двух окон каждого типа</option><option value="unlimited">Без ограничения числа окон · весь горизонт</option></select></label>
       <div class="fields">
         <label>Ёмкость, кВт·ч<input name="capacity_kwh" type="number" value="10" min="0.01" max="1000" step="any" required></label>
-        <label>Заряд, кВт<input name="max_charge_kw" type="number" value="5" min="0" max="1000" step="any" required></label>
+        <label>Заряд на стороне батареи, кВт<input name="max_charge_kw" type="number" value="6" min="0" max="1000" step="any" required></label>
         <label>Использование, кВт<input name="max_discharge_kw" type="number" value="5" min="0" max="1000" step="any" required></label>
         <label>Начальный заряд, %<input name="initial_soc_percent" type="number" value="10" min="0" max="100" step="any" required></label>
         <label>Минимум заряда, %<input name="min_soc_percent" type="number" value="10" min="0" max="100" step="any" required></label>
@@ -34,9 +35,9 @@
   </details>
   <section id="report" hidden aria-label="Отчёт по энергии">
     <div class="section-title"><h2>Обзор горизонта</h2><span id="timezone">Europe/Riga</span></div>
-    <p id="horizon"></p><p id="warnings" class="notice" hidden></p>
+    <p id="horizon"></p><p id="constraints"></p><p id="warnings" class="notice" hidden></p>
     <div id="metrics" class="metrics"></div>
-    <section class="panel"><h2>Цены и выбранные действия</h2><p>Оптовая цена, €/MWh. Цвет фона показывает действие плана; прошедшие интервалы остаются без цвета.</p>
+    <section class="panel"><h2>Цены и выбранные действия</h2><p>Оптовая цена, €/MWh. Цвет фона показывает действие плана; интервалы вне горизонта расчёта остаются без цвета.</p>
       <div class="legend"><span class="charge">Заряд</span><span class="discharge">Использование дома</span><span class="hold">Ожидание</span></div>
       <svg id="chart" viewBox="0 0 1000 280" role="img" aria-label="График цен и действий батареи"></svg>
     </section>

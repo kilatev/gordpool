@@ -36,7 +36,8 @@ async function calculate() {
   const settings = battery();
   const body = {battery:settings};
   if (demo) { body.prices = snapshot.prices; body.now = snapshot.prices[0].start; }
-  const plan = await request('/v1/plan', body);
+  const endpoint = $('planner').value === 'periods' ? '/v1/plan/periods' : '/v1/plan';
+  const plan = await request(endpoint, body);
   const report = {mode:demo ? 'demo' : 'nordpool', snapshot, battery:settings, plan};
   render(report);
   lastReport = report;
@@ -69,6 +70,8 @@ function chart(prices, slots) {
 }
 function render(report) {
   const {plan,snapshot,mode} = report, summary = plan.summary;
+  const limits = plan.planning_constraints;
+  $('constraints').textContent = limits ? 'До '+limits.horizon_hours+' ч по опубликованным ценам · не более '+limits.max_charge_windows+' окон заряда и '+limits.max_discharge_windows+' окон использования · заряд из сети ≤ '+number(limits.max_grid_charge_kw)+' кВт с учётом потерь. Периоды заданы абсолютным временем, не ежедневным расписанием оборудования.' : 'Весь опубликованный горизонт без ограничения количества окон. Только ценовые возможности.';
   $('source').textContent = mode === 'demo' ? 'ДЕМО · синтетические цены' : 'Nord Pool LV · загрузка ' + date(snapshot.fetched_at);
   $('horizon').textContent = date(snapshot.prices[0].start) + ' — ' + date(snapshot.prices.at(-1).end) + ' · ' + snapshot.prices.length + ' ценовых интервалов · ' + plan.slots.length + ' интервалов плана · заряд ' + plan.initial_soc_grid_percent + '% → ' + plan.final_soc_percent + '%';
   $('warnings').textContent = (snapshot.warnings || []).join(' · ');

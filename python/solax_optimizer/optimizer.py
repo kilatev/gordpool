@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 from math import ceil, floor, isfinite, sqrt
 from statistics import median
 
+from .periods import PeriodLimits, choose_moves
+
 UTC = timezone.utc
 QUARTER = timedelta(minutes=15)
 
@@ -66,12 +68,18 @@ class Battery:
             raise ValueError("Invalid wear or cycle limit")
 
 
-def optimize(prices: list[Price], battery: Battery, now: datetime) -> dict:
+def optimize(prices: list[Price], battery: Battery, now: datetime,
+             limits: PeriodLimits | None = None) -> dict:
     battery.validate()
+    if limits is not None:
+        limits.validate()
     now = utc(now)
     prices = validate_prices(prices)
     # Keep the remaining part of the current interval, using its published price.
     future = [Price(max(p.start, now), p.end, p.eur_mwh) for p in prices if p.end > now]
+    if limits is not None:
+        end = now + timedelta(hours=limits.horizon_hours)
+        future = [Price(p.start, min(p.end, end), p.eur_mwh) for p in future if p.start < end]
     if len(future) > 200:
         raise ValueError("At most 200 future intervals are supported")
     if not future:
@@ -81,43 +89,52 @@ def optimize(prices: list[Price], battery: Battery, now: datetime) -> dict:
     eta = sqrt(b.round_trip_efficiency)
     lo, hi = ceil(b.min_soc_percent), floor(b.max_soc_percent)
     start = floor(b.initial_soc_percent + .5)  # Go math.Round for positive SOC
-    if not lo <= start <= hi:
+    if not lo < hi or not lo <= start <= hi:
         raise ValueError("SOC window is too narrow for the 1% grid")
     terminal = b.stored_energy_value_eur_kwh
     if terminal is None:
         terminal = median(p.eur_mwh / 1000 for p in future)
     hours = sum((p.end - p.start).total_seconds() / 3600 for p in future)
     cap = floor(b.max_cycles_per_day * hours / 24 * (hi - lo) + 1e-9) if b.max_cycles_per_day else None
-    # ponytail: 1% SOC DP as in Go; continuous MILP when sub-percent moves matter.
-    budget = min(cap, len(future) * 100) if cap is not None else 0
-    costs = {(a, u): -terminal * a * step for a in range(lo, hi + 1) for u in range(budget + 1)}
-    choices = []
-    for p in reversed(future):
-        dt = (p.end - p.start).total_seconds() / 3600
-        up = min(100, floor(b.max_charge_kw * dt / step + 1e-9))
-        down = min(100, floor(b.max_discharge_kw * dt / step + 1e-9))
-        moves = {}
-        for d in range(-down, up + 1):
-            energy = d * step
-            ac = energy / eta if d > 0 else energy * eta
-            moves[d] = p.eur_mwh / 1000 * ac + max(-energy, 0) * b.degradation_eur_kwh
-        current, choice = {}, {}
-        for a, used in costs:
-            best, best_d = float("inf"), 0
-            # Idle first means an equal-cost move never creates a gratuitous cycle.
-            for d in [0] + list(range(max(lo - a, -down), 0)) + list(range(1, min(hi - a, up) + 1)):
-                next_used = used + max(-d, 0) if cap is not None else 0
-                tail = costs.get((a + d, next_used), float("inf"))
-                value = moves[d] + tail + 1e-9 * abs(d)
-                if value < best:
-                    best, best_d = value, d
-            current[a, used], choice[a, used] = best, best_d
-        costs = current
-        choices.append(choice)
+    if limits is None:
+        # ponytail: 1% SOC DP as in Go; continuous MILP when sub-percent moves matter.
+        budget = min(cap, len(future) * 100) if cap is not None else 0
+        costs = {(a, u): -terminal * a * step for a in range(lo, hi + 1) for u in range(budget + 1)}
+        choices = []
+        for p in reversed(future):
+            dt = (p.end - p.start).total_seconds() / 3600
+            up = min(100, floor(b.max_charge_kw * dt / step + 1e-9))
+            down = min(100, floor(b.max_discharge_kw * dt / step + 1e-9))
+            moves = {}
+            for d in range(-down, up + 1):
+                energy = d * step
+                ac = energy / eta if d > 0 else energy * eta
+                moves[d] = p.eur_mwh / 1000 * ac + max(-energy, 0) * b.degradation_eur_kwh
+            current, choice = {}, {}
+            for a, used in costs:
+                best, best_d = float("inf"), 0
+                # Idle first means an equal-cost move never creates a gratuitous cycle.
+                for d in [0] + list(range(max(lo - a, -down), 0)) + list(range(1, min(hi - a, up) + 1)):
+                    next_used = used + max(-d, 0) if cap is not None else 0
+                    tail = costs.get((a + d, next_used), float("inf"))
+                    value = moves[d] + tail + 1e-9 * abs(d)
+                    if value < best:
+                        best, best_d = value, d
+                current[a, used], choice[a, used] = best, best_d
+            costs = current
+            choices.append(choice)
+        path, level, used = [], start, 0
+        for choice in reversed(choices):
+            d = choice[level, used]
+            path.append(d)
+            level += d
+            if cap is not None:
+                used += max(-d, 0)
+    else:
+        path = choose_moves(future, b, start, lo, hi, terminal, cap, limits)
     slots, level, used = [], start, 0
     purchase_cost = avoided_cost = wear = imported = delivered = discharged = 0.0
-    for p, choice in zip(future, reversed(choices)):
-        d = choice[level, used]
+    for p, d in zip(future, path):
         energy = d * step
         ac = energy / eta if d > 0 else energy * eta
         action = "CHARGE" if d > 0 else "DISCHARGE" if d < 0 else "HOLD"
@@ -151,7 +168,7 @@ def optimize(prices: list[Price], battery: Battery, now: datetime) -> dict:
                "HOLD":"В этом интервале выгоднее сохранить заряд или не выполнять цикл."}
     for w in windows:
         w["reason"] = reasons[w["action"]]
-    return dict(kind="price_opportunity_only", executable=False, slots=slots, windows=windows,
+    result = dict(kind="price_opportunity_only", executable=False, slots=slots, windows=windows,
                 initial_soc_grid_percent=start, final_soc_percent=level,
                 summary=dict(purchase_cost_eur=purchase_cost, potential_avoided_cost_eur=avoided_cost,
                              wear_cost_eur=wear, potential_cash_benefit_eur=cash_benefit,
@@ -162,3 +179,20 @@ def optimize(prices: list[Price], battery: Battery, now: datetime) -> dict:
                              "Discharge value assumes enough household demand; this is not verified savings.",
                              "Power limits and wear are battery-side; prices exclude tariff add-ons.",
                              "Terminal value is a modelling assumption, not cash income."])
+
+    if limits is not None:
+        result["planning_constraints"] = dict(
+            horizon_hours=limits.horizon_hours, max_charge_windows=limits.max_charge_windows,
+            max_discharge_windows=limits.max_discharge_windows,
+            max_grid_charge_kw=limits.max_grid_charge_kw,
+            effective_charge_battery_kw=min(b.max_charge_kw, limits.max_grid_charge_kw * eta),
+            window_semantics="Contiguous active UTC intervals; HOLD closes a window",
+            terminal_value_eur_kwh=terminal,
+        )
+    return result
+
+
+def optimize_periods(prices: list[Price], battery: Battery, now: datetime,
+                     limits: PeriodLimits = PeriodLimits()) -> dict:
+    """Choose up to two charge/use windows on the next 24h, with no I/O."""
+    return optimize(prices, battery, now, limits)
